@@ -1,0 +1,27 @@
+services:
+  postgres-db:
+    image: postgres:15
+    container_name: my_postgres
+    environment:
+      POSTGRES_DB: jobservicedb
+      POSTGRES_USER: jobserviceuser
+      POSTGRES_PASSWORD: test1234gsastry
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobserviceuser -d jobservicedb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  springboot-app:
+      build: .
+      ports:
+        - "8081:8080"
+      image: authenticationservice:latest
+      depends_on:
+        postgres-db:
+          condition: service_healthy
+volumes:
+  postgres-data:
