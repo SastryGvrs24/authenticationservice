@@ -19,6 +19,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -36,52 +41,17 @@ public class SecurityConfiguration {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
 		return httpSecurity.csrf(AbstractHttpConfigurer::disable)
+				.cors(Customizer.withDefaults())
 				.headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin))
 				.authorizeHttpRequests(request -> request
 						// Public endpoints for both customers and restaurant owners
 						.requestMatchers("/**", "/api/customer/signup", "/api/customer/login",
 								"/api/customer/checkUsernameAvailability", "/h2-console/**", "/swagger-resources", "/swagger-resources/**","/swagger-ui/**", "v3/api-docs/**")
 						.permitAll() // These are accessible without authentication
-
-						// Customer specific endpoints that require ROLE_CUSTOMER
-						.requestMatchers("/api/customer/update", "/api/customer/Order", "/api/customer/orders/**",
-								"/api/customer/searchMenuItems","/api/customer/trackOrder/**")
-						.hasRole("CUSTOMER") // Ensure that only users with 'ROLE_CUSTOMER' can access these endpoints
-
-						// Restaurant Owner specific endpoints that require ROLE_RESTAURANT_OWNER
-						.requestMatchers("/api/restaurant/signup", "/api/restaurant/login",
-								"/api/restaurant/checkUsernameAvailability")
-						.permitAll() // These endpoints should be available without authentication (for sign-up and
-										// login)
-
-						.requestMatchers("/api/restaurant/menu/**", "/api/restaurant/menu", "/api/restaurant/update",
-								"/api/restaurant/orders", "/api/restaurant/orders/**","/api/deliveries/**")
-						.hasRole("RESTAURANT_OWNER") // Ensure that only users with 'ROLE_RESTAURANT_OWNER' can access
-														// restaurant management endpoints
-
-						// For Delivery Personnel
-						.requestMatchers("/api/deliveryPersonnel/signup", "/api/deliveryPersonnel/login",
-								"/api/deliveryPersonnel/checkUsernameAvailability")
-						.permitAll() // These endpoints should be available without authentication (for sign-up and
-										// login)
-						.requestMatchers("/api/deliveryPersonnel/availableDeliveries/**", "/api/deliveryPersonnel/acceptDelivery",
-								"/api/deliveryPersonnel/updateDeliveryStatus", "/api/deliveryPersonnel/setAvailability")
-						.hasRole("RESTAURANT_OWNER") 
-						
-						.requestMatchers("/api/admin/signup", "/api/admin/login",
-								"/api/admin/checkUsernameAvailability")
-						.permitAll()
-						
-						.requestMatchers("/api/admin/createUser", "/api/admin/updateUser/**",
-								"/api/admin/deactivateUser", "/api/admin/viewAllOrders", "/api/admin/generateReport",
-								"/api/admin/platformActivity", "/api/admin/deleteOrder/**")
-						.hasRole("RESTAURANT_OWNER") 
-						
 						.anyRequest().authenticated() // All other requests require authentication
 				).addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 				.httpBasic(Customizer.withDefaults())
-				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Stateless
-																												// authentication// for
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // Stateless// authentication// for
 																												// JWT
 				.build();
 
@@ -98,6 +68,19 @@ public class SecurityConfiguration {
 	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();
+	}
+
+	@Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration configuration = new CorsConfiguration();
+		configuration.setAllowedOrigins(List.of("*"));
+		configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+		configuration.setAllowedHeaders(List.of("*"));
+		configuration.setAllowCredentials(false); // If you plan to allow credentials, set to true and avoid '*'
+
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
 	}
 
 

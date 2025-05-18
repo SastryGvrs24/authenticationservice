@@ -25,7 +25,7 @@ public class JWTService {
 
 	public String generateToken(String userName, Role role) {
 		Map<String, Object> claims = new HashMap<>();
-		claims.put("roles", role); // Add roles directly as a List to the claims map
+		claims.put("roles", List.of(role.getRoleName())); // Add roles directly as a List to the claims map
 
 		// Build and sign the token
 		return Jwts.builder().setClaims(claims) // Set the claims
@@ -44,6 +44,13 @@ public class JWTService {
 		return Jwts.parser().verifyWith(getKey()).build().parseSignedClaims(token).getPayload().getSubject();
 	}
 
+	public boolean validateToken(String token) {
+		Date expirationDate = extractExpirationDate(token);
+
+		// Check if token is expired and also check if username matches
+		return expirationDate.after(new Date());
+	}
+
 	public boolean validateToken(String token, UserDetails userDetails) {
 		final String userName = extractUserName(token);
 		Date expirationDate = extractExpirationDate(token);
@@ -57,25 +64,41 @@ public class JWTService {
 	}
 
 	public List<String> extractRoles(String token) {
-		String rolesString = (String) Jwts.parser().verifyWith(getKey()).build().parseSignedClaims(token)
-				.getBody().get("roles"); // Extract roles from claims
+		Object rolesObj = Jwts.parser()
+				.verifyWith(getKey())
+				.build()
+				.parseSignedClaims(token)
+				.getPayload()
+				.get("roles");
 
-		// Convert the roles string back to a list of role names
-		return List.of(rolesString.replace("[", "").replace("]", "").split(", "));
+		if (rolesObj instanceof List<?>) {
+			return ((List<?>) rolesObj).stream()
+					.map(Object::toString)
+					.toList(); // or .collect(Collectors.toList()) in older Java
+		}
+
+		return List.of();
 	}
+
 
 	public boolean hasRole(String jwtToken, String role) {
-	    // Parse the JWT claims using the parser from older JJWT versions
-	    Claims claims = Jwts.parser()
-	                        .setSigningKey(getKey()) // Ensure getKey() provides the correct signing key
-	                        .build().parseSignedClaims(jwtToken) // Parses the JWT token
-	                        .getBody(); // Retrieves the claims body
+		Claims claims = Jwts.parser()
+				.setSigningKey(getKey())
+				.build()
+				.parseSignedClaims(jwtToken)
+				.getPayload();
 
-	    // Retrieve the roles from claims as a List of Strings
-	    List<String> roles = claims.get("roles", List.class);
+		Object rolesObj = claims.get("roles");
 
-	    // Check if the list contains the desired role
-	    return roles != null && roles.contains(role);
+		if (rolesObj instanceof List<?>) {
+			List<?> roles = (List<?>) rolesObj;
+			for (Object r : roles) {
+				if (r != null && r.toString().equals(role)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
-
 }

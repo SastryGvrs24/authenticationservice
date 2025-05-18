@@ -3,14 +3,14 @@ package com.mtechproject.gsastry.authenticationservice.controller;
 
 import com.mtechproject.gsastry.authenticationservice.dto.*;
 import com.mtechproject.gsastry.authenticationservice.service.AuthService;
+import com.mtechproject.gsastry.authenticationservice.service.JWTService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/auth")
@@ -21,6 +21,10 @@ public class AuthController {
     private AuthService authService;
     @Autowired
     private PasswordEncoder passwordEncoder;
+    @Autowired
+    private JWTService jwtService;
+
+    private String authHeader;
 
     // Register a new Customer
     @PostMapping("/signup")
@@ -85,6 +89,39 @@ public class AuthController {
             errorResponse.setResponseCode(HttpStatus.UNAUTHORIZED);
             errorResponse.setErrorMessage("Authentication failed: " + e.getMessage());
             return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @GetMapping("/validate-token")
+    public ResponseEntity<Response<TokenValidationResponse>> validateToken(@RequestParam("token") String authHeader) {
+        this.authHeader = authHeader;
+        Response<TokenValidationResponse> response = new Response<>();
+        TokenValidationResponse tokenResponse = new TokenValidationResponse();
+
+        try {
+            if (authHeader == null) {
+                throw new IllegalArgumentException("Invalid Authorization header format");
+            }
+
+            tokenResponse.setValid(jwtService.validateToken(authHeader));
+            tokenResponse.setUsername(jwtService.extractUserName(authHeader));
+            tokenResponse.setRoles(jwtService.extractRoles(authHeader));
+            tokenResponse.setMessage("Token is valid");
+
+            response.setResponseCode(HttpStatus.OK);
+            response.setData(tokenResponse);
+
+            return new ResponseEntity<>(response, HttpStatus.OK);
+
+        } catch (Exception e) {
+            tokenResponse.setValid(false);
+            tokenResponse.setMessage("Token validation failed: " + e.getMessage());
+
+            response.setResponseCode(HttpStatus.UNAUTHORIZED);
+            response.setData(tokenResponse);
+            response.setErrorMessage(e.getMessage());
+
+            return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
         }
     }
 }

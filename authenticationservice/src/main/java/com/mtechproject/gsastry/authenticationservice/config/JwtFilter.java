@@ -17,6 +17,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 public class JwtFilter extends OncePerRequestFilter {
@@ -30,9 +31,10 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String requestURI = request.getRequestURI();
         // Skip authentication for certain endpoints
-        if (requestURI.contains("v3/api-docs") || requestURI.contains("/swagger-ui") || requestURI.contains("h2-console") || requestURI.equals("/api/customer/signup")
+        if (requestURI.contains("v3/api-docs") || requestURI.contains("/swagger-ui") || requestURI.contains("h2-console") || requestURI.equals("/api/signup")
                 || requestURI.equals("/auth/login")
-                || requestURI.equals("/auth/signup")) {
+                || requestURI.equals("/auth/signup")
+                || requestURI.contains("/auth/validate-token")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -102,16 +104,12 @@ public class JwtFilter extends OncePerRequestFilter {
 
     // Extracts role from JWT token (modify as needed based on JWTService)
     private String extractUserRole(String jwtToken) {
-        if (jwtService.hasRole(jwtToken, "ROLE_CUSTOMER")) {
-            return "ROLE_CUSTOMER";
-        } else if (jwtService.hasRole(jwtToken, "ROLE_RESTAURANT_OWNER")) {
-            return "ROLE_RESTAURANT_OWNER";
-        } else if (jwtService.hasRole(jwtToken, "ROLE_DELIVERY_PERSONNEL")) {
-            return "ROLE_DELIVERY_PERSONNEL";
-        } else if (jwtService.hasRole(jwtToken, "ROLE_ADMIN")) {
-            return "ROLE_ADMIN";
+        try {
+            List<String> roles = jwtService.extractRoles(jwtToken);
+            return roles.isEmpty() ? null : roles.get(0);
+        } catch (Exception e) {
+            logger.error("Error extracting roles from JWT: " + e.getMessage());
+            return null;
         }
-        // Add other roles as needed
-        return null;
     }
 }

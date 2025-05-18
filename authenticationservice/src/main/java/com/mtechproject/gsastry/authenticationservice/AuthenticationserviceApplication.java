@@ -26,7 +26,9 @@ public class AuthenticationserviceApplication implements CommandLineRunner {
 
 		// initial role - data
 		for(RoleEnum role : RoleEnum.values()) {
-			roleRepository.save(new Role(role.toString()));
+			if(roleRepository.findByRoleName(role.toString()) == null) {
+				roleRepository.save(new Role(role.toString()));
+			}
 		}
 	}
 }
